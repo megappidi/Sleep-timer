@@ -11,6 +11,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
+import android.net.Uri;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -86,7 +88,23 @@ public class MainActivity extends Activity {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         manager.cancel(alarm());
         // Alarm-clock scheduling is permitted without a special exact-alarm permission.
-        manager.setAlarmClock(new AlarmManager.AlarmClockInfo(end, open), alarm());
+        if (Build.VERSION.SDK_INT >= 31 && !manager.canScheduleExactAlarms()) {
+            info.setText("Allow Alarms & reminders, then return and tap Start again.");
+            Intent settings = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+            settings.setData(Uri.parse("package:" + getPackageName()));
+            try {
+                startActivity(settings);
+            } catch (Exception e) {
+                info.setText("Open Alarms & reminders permission in Android Settings.");
+            }
+            return;
+        }
+        try {
+            manager.setAlarmClock(new AlarmManager.AlarmClockInfo(end, open), alarm());
+        } catch (SecurityException e) {
+            info.setText("Timer permission missing. Enable Alarms & reminders in Settings.");
+            return;
+        }
         getPreferences(0).edit().putLong("end", end).putString("result", "").apply();
         refresh();
     }
